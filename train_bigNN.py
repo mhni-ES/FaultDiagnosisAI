@@ -21,13 +21,15 @@ loss_vec = []
 # Seed for torch cuda optimization
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(0)
+    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+    torch.cuda.set_device(0)
 dev = torch.device(
     "cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 # Hyper-parameters
 num_classes = 49 # this is the total number of classes that can be diagnosed right now this will grow exponetially the more requirements i do.
 num_epochs = 60
-batch_size = 200
+batch_size =  200
 learning_rate = 0.1
 
 
@@ -48,10 +50,16 @@ def mat_load_file(input):
     # return item[::1000]
     return IQ_raw
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 # a = mat_load_file(filename_load)
-train_dataset = datasets.DatasetFolder(root='data_processed_Reallybig/1000/training', loader=npy_load_file, extensions='npy')
-test_dataset = datasets.DatasetFolder(root='data_processed_Reallybig/1000/testing', loader=npy_load_file, extensions='npy')
+train_dataset = datasets.DatasetFolder(
+    root='/mnt/ntfs/AI/NeuralNetwork/AMO/data_processed_Reallybig/data_processed_Reallybig/1000/training',
+    loader=npy_load_file, extensions='npy')
+test_dataset = datasets.DatasetFolder(
+    root='/mnt/ntfs/AI/NeuralNetwork/AMO/data_processed_Reallybig/data_processed_Reallybig/1000/testing',
+    loader=npy_load_file, extensions='npy')
 classes = list(train_dataset.class_to_idx.keys())
 dataset_len = len(train_dataset)
 train_dataset, test_dataset = torch.utils.data.random_split(train_dataset,
@@ -78,6 +86,50 @@ input_size = 2 * 5000
 import torch.nn as nn
 import torch.nn.functional as F
 
+def train_model(model, criterion, num_epochs):
+    net.to(dev)
+
+    # moves model to the CUDA core if available
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
+    # Scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size = num_epochs / 5, gamma = 0.1, last_epoch = -1)
+    Scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=2, verbose=True)
+    # Train the model
+    Start = time.time()
+    total_step = len(train_loader)
+
+    for epoch in range(num_epochs):
+        correct = 0
+        total = 0
+        for i, (data, labels) in enumerate(train_loader):
+            # print(i)
+            # Reshape images to (batch_size, input_size)
+            data = torch.reshape(data, (-1, input_size))
+
+            # Forward pass
+            outputs = model(data.float())
+            loss = criterion(outputs, labels)
+
+            # Backward and optimize
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            loss_vec.append(loss.item())
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum()
+
+        accuracy = 100 * correct / total
+
+        #    if (i+1) % 1 == 0:
+        #        print ('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
+        #               .format(epoch+1, num_epochs, i+1, total_step, loss.item()))
+        print('Epoch [{}/{}],Loss: {:.4f},Accuracy: {:.2f}'
+          .format(epoch + 1, num_epochs, loss.item(), accuracy))
+        Scheduler.step(accuracy)
+
+    print('Time use:', time.time() - Start)
+
 
 class NeuralNet(nn.Module):
     def __init__(self, input_size, hidden_size, num_classes):
@@ -103,67 +155,30 @@ class NeuralNet(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
         return x
-
-
-model = NeuralNet(input_size=input_size, hidden_size=500, num_classes=num_classes)
-model.to(dev)  # moves model to the CUDA core if available
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
-# Scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size = num_epochs / 5, gamma = 0.1, last_epoch = -1)
-Scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=2, verbose=True)
-# Train the model
-Start = time.time()
-total_step = len(train_loader)
-
-for epoch in range(num_epochs):
-    correct = 0
-    total = 0
-    for i, (data, labels) in enumerate(train_loader):
-        # print(i)
-        # Reshape images to (batch_size, input_size)
-        data = torch.reshape(data, (-1, input_size))
-
-        # Forward pass
-        outputs = model(data.float())
-        loss = criterion(outputs, labels)
-
-        # Backward and optimize
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        loss_vec.append(loss.item())
-        _, predicted = torch.max(outputs.data, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum()
-
-    accuracy = 100 * correct / total
-
-    #    if (i+1) % 1 == 0:
-    #        print ('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
-    #               .format(epoch+1, num_epochs, i+1, total_step, loss.item()))
-    print('Epoch [{}/{}],Loss: {:.4f},Accuracy: {:.2f}'
-          .format(epoch + 1, num_epochs, loss.item(), accuracy))
-    Scheduler.step(accuracy)
-model.eval()
-print('Time use:', time.time() - Start)
+net = NeuralNet(input_size= input_size, hidden_size= 500, num_classes= num_classes)
+train_model(model=net, criterion = nn.CrossEntropyLoss(),num_epochs= num_epochs)
+count = count_parameters(net)
+print('Parameters trianed',count)
 # for i, (data_test, labels) in enumerate(test_loader):
 (data_test, labels_test) = next(iter(test_loader))
 # Reshape images to (batch_size, input_size)
 data_test = torch.reshape(data_test, (-1, input_size))
 
+net.eval()
 # Forward pass
-outputs = model(data_test.float())
+criterion = nn.CrossEntropyLoss()
+outputs = net(data_test.float())
 loss = criterion(outputs, labels_test)
 # Find accuracy of the test
 _, predicted = torch.max(outputs.data, 1)
 test_total = labels_test.size(0)
 test_correct = (predicted == labels_test).sum()
-accuracy_test = 100 * test_correct.numpy() / test_total
+accuracy_test = 100 * test_correct.cpu().numpy() / test_total
 
 print('loss is ', loss.item())
 print('accuracy is ', accuracy_test)
 
-torch.save(model.state_dict(), '/Users/mhni/Desktop/GOMX5-MARK3/NeuralNetwork/AMO/models/AMO_NN_Reallybig_60epoch.pth')
+torch.save(net.state_dict(), 'models/AMO_NN_Reallybig_batch10k_60epoch2_learningrate01.pth')
 
 
 def plot_confusion_matrix(y_true, y_pred, classes, labels=None,
@@ -189,7 +204,7 @@ def plot_confusion_matrix(y_true, y_pred, classes, labels=None,
         print("Normalized confusion matrix")
     else:
         print('Confusion matrix, without normalization')
-    np.savetxt('confusionMatReallybig60epoch.txt', cm, delimiter=',')
+    np.savetxt('txtFiles/confusionMatReallybig_batch10k_60epoch2.txt', cm, delimiter=',')
     print(cm)
     #np.savetxt('confusionMatbig50epoch.txt', cm, delimiter=',')
     fig, ax = plt.subplots()
@@ -221,12 +236,11 @@ def plot_confusion_matrix(y_true, y_pred, classes, labels=None,
     fig.tight_layout()
     return ax
 
-
 classes_int = np.arange(len(classes))
 classes = ['4', '3', '2', '5', '12', '15', '14', '13', '9', 'No Faults', '7', '6', '1', '8', '16', '11', '10','4 ATT', '3ATT', '2ATT', '5ATT', '12ATT', '15ATT', '14ATT', '13ATT', '9ATT', 'No Faults', '7ATT', '6ATT', '1ATT', '8ATT', '16ATT', '11ATT', '10ATT']
-plot_confusion_matrix(labels_test, outputs.argmax(1).detach().numpy(), classes=classes_int, normalize='true',
+plot_confusion_matrix(labels_test.cpu(), outputs.cpu().argmax(1).detach(), classes=classes_int, normalize='true',
                       labels=classes)
-plt.savefig('conf_mat_Reallybig_60epoch.pdf')
+plt.savefig('Figure/conf_mat_Reallybig_batch10k_60epoch2.pdf')
 
 
 
@@ -238,12 +252,7 @@ plt.figure()
 plt.plot(loss_vec)
 plt.xlabel('Number of training steps')
 plt.ylabel('Cross entropy loss')
-plt.savefig('Loss_vec_Reallybig_60epoch.pdf')
+plt.savefig('Figure/Loss_vec_Reallybig_batch10k_60epoch2.pdf')
 
-plt.figure()
-for i in range(7):
-    plt.scatter((data[labels == i])[:, 0], (data[labels == i])[:, 1])
-    plt.scatter((data_test[labels_test == i])[:, 0], (data_test[labels_test == i])[:, 1])
-plt.show()
 # Save the model checkpoint
 #torch.save(model.state_dict(), 'model.ckpt')
