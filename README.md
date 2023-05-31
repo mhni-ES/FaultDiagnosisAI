@@ -27,3 +27,18 @@ Finally run the test_model.py to generate the test results shown in the paper
 
 # To do: 
 Generate a script that does everything and is controlled 
+
+# Citation
+
+If you use this code or find it helpful in your research, please consider citing the following paper:
+
+@ARTICLE{9794293,
+  author={Nielsen, Martin H. and Zhang, Yufeng and Xue, Changbin and Ren, Jian and Yin, Yingzeng and Shen, Ming and Pedersen, Gert Frølund},
+  journal={IEEE Transactions on Antennas and Propagation}, 
+  title={Robust and Efficient Fault Diagnosis of mm-Wave Active Phased Arrays Using Baseband Signal}, 
+  year={2022},
+  volume={70},
+  number={7},
+  pages={5044-5053},
+  doi={10.1109/TAP.2022.3179898}}
+
