@@ -1,5 +1,5 @@
 # FaultDiagnosisAI
-This repository contains code for implementing the method described in the paper “Robust and Efficient Fault Diagnosis of mm-Wave Active Phased Arrays Using Baseband Signal” 1.
+This repository contains code for implementing the method described in the paper “Robust and Efficient Fault Diagnosis of mm-Wave Active Phased Arrays Using Baseband Signal”.
 
 # Overview
 One key communication block in 5G and 6G radios is the active phased array (APA). To ensure reliable operation, efficient and timely fault diagnosis of APAs on-site is crucial. To date, fault diagnosis has relied on measurement of frequency domain radiation patterns using costly equipment and multiple strictly controlled measurement probes, which are time consuming, complex, and therefore infeasible for on-site deployment 1.
@@ -30,8 +30,8 @@ Generate a script that does everything and is controlled
 
 # Citation
 
-If you use this code or find it helpful in your research, please consider citing the following paper:
-
+If you use this code or find it helpful in your research, please cite the following paper:
+```bibtex
 @ARTICLE{9794293,
   author={Nielsen, Martin H. and Zhang, Yufeng and Xue, Changbin and Ren, Jian and Yin, Yingzeng and Shen, Ming and Pedersen, Gert Frølund},
   journal={IEEE Transactions on Antennas and Propagation}, 
@@ -41,4 +41,4 @@ If you use this code or find it helpful in your research, please consider citing
   number={7},
   pages={5044-5053},
   doi={10.1109/TAP.2022.3179898}}
-
+```
